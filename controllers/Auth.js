@@ -6,50 +6,50 @@ import UserModal from '../models/User.js';
 import bcrypt from 'bcryptjs'
 
 const Register = async (req, res) => {
-  try {
-    const { FullName, email, password } = req.body;
+    try {
+        const { FullName, email, password } = req.body;
 
-    if (!FullName || !email || !password || !req.file) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
+        if (!FullName || !email || !password || !req.file) {
+            return res.status(400).json({ success: false, message: "All fields are required" });
+        }
+
+        // Check if user already exists
+        const existUser = await UserModal.findOne({ email });
+        if (existUser) {
+            return res.status(301).json({ success: false, message: "User already exists. Please login." });
+        }
+
+        // Upload to Cloudinary
+        const localPath = req.file.path;
+        const cloudinaryResult = await FileUploadToCloudinary(localPath, 'user_profiles'); // This should return a URL
+
+        console.log("Upload success:", cloudinaryResult);
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Save user with Cloudinary image URL
+        const newUser = new UserModal({
+            FullName,
+            email,
+            password: hashedPassword,
+            profile: cloudinaryResult, // This should be the Cloudinary URL
+        });
+
+        await newUser.save();
+
+
+
+        return res.status(201).json({
+            success: true,
+            message: 'User registered successfully',
+            user: newUser,
+        });
+
+    } catch (error) {
+        console.error('Error during registration', error);
+        return res.status(500).json({ success: false, message: 'Error during registration' });
     }
-
-    // Check if user already exists
-    const existUser = await UserModal.findOne({ email });
-    if (existUser) {
-      return res.status(301).json({ success: false, message: "User already exists. Please login." });
-    }
-
-    // Upload to Cloudinary
-    const localPath = req.file.path;
-    const cloudinaryResult = await FileUploadToCloudinary(localPath, 'user_profiles'); // This should return a URL
-
-    console.log("Upload success:", cloudinaryResult);
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Save user with Cloudinary image URL
-    const newUser = new UserModal({
-      FullName,
-      email,
-      password: hashedPassword,
-      profile: cloudinaryResult, // This should be the Cloudinary URL
-    });
-
-    await newUser.save();
-
- 
-
-    return res.status(201).json({
-      success: true,
-      message: 'User registered successfully',
-      user: newUser,
-    });
-
-  } catch (error) {
-    console.error('Error during registration', error);
-    return res.status(500).json({ success: false, message: 'Error during registration' });
-  }
 };
 
 
@@ -60,7 +60,7 @@ const Login = async (req, res) => {
             return res.status(400).json({ success: false, message: "All fields are required" });
         }
         const FindUser = await UserModal.findOne({ email });
-        
+
         if (!FindUser) {
             return res.status(404).json({ success: false, message: "Account not found. Please register." });
         }
@@ -70,13 +70,15 @@ const Login = async (req, res) => {
         }
 
         const token = jwt.sign({ userId: FindUser._id }, process.env.JWT_SECRET);
+
         res.cookie('token', token, {
             httpOnly: true,
-            secure: false,
-            maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days in milliseconds
+            secure: true,               
+            sameSite: 'None',           
+            maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days
         });
-        
-       
+
+
         return res.status(200).json({ success: true, message: "Login successfully", user: FindUser, token });
     } catch (error) {
         console.error('Error during login', error);
@@ -84,7 +86,7 @@ const Login = async (req, res) => {
     }
 };
 
-const Logout=async(req,res)=>{
+const Logout = async (req, res) => {
     try {
         // Clear the token cookie
         res.clearCookie('token');
@@ -130,9 +132,9 @@ const updateProfile = async (req, res) => {
             return res.status(400).json({ success: false, message: "New password is required when old password is provided." });
         }
 
-        
 
-    
+
+
         await ExistUser.save();
 
         // Return success response
@@ -144,4 +146,4 @@ const updateProfile = async (req, res) => {
     }
 };
 
-export {Register,Login,Logout,updateProfile}
+export { Register, Login, Logout, updateProfile }
