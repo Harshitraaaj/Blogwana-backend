@@ -21,7 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'))
 app.use(cookieParser())
 const corsOptoins={
-    origin:true,
+    origin:'https://blogwana-frontend.vercel.app',
     credentials:true
 }
 app.use(cors(corsOptoins))
